@@ -75,27 +75,25 @@ jobs:
         # Патчим версию .NET на 8.0
         python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
         
-        # Собираем в папку BuildGen
+        # Собираем в папку BuildGen в корне
         dotnet build CppGen/CppGen/CppGen.csproj -c Release -o ./BuildGen
 
     - name: Run CppGen
       shell: bash
       run: |
-        # 1. Копируем конфиг в папку запуска
-        # (Путь CppGen/CppGen/gml.json правильный, так как ты его туда переместил)
+        # 1. Копируем конфиг. Путь CppGen/CppGen/gml.json правильный (ты его переместил ранее)
         cp CppGen/CppGen/gml.json ./BuildGen/gml.json
 
         cd BuildGen
         
-        # 2. УМНАЯ ПРОВЕРКА: Копируем файлы только на Linux.
-        # На Mac/Windows файловая система сама поймет разницу регистров, а cp выдаст ошибку.
-        if [ "${{ runner.os }}" == "Linux" ]; then
-          cp gml.json GML.json
-          cp gml.json Gml.json
-        fi
+        # 2. Создаем дубликаты с разным регистром БЕЗ ПРОВЕРОК (работает везде и надежно)
+        # Это решает проблему "Could not find gml.json" на Mac/Linux
+        cp gml.json GML.json || true
+        cp gml.json Gml.json || true
         
-        # 3. Запускаем с АБСОЛЮТНЫМИ ПУТЯМИ
-        dotnet CppGen.dll -game "${{ github.workspace }}/GmProject" -cpp "${{ github.workspace }}/CppProject"
+        # 3. Запускаем с ОТНОСИТЕЛЬНЫМИ ПУТЯМИ (../)
+        # Это решает проблему "No GameMaker project found" на Windows (из-за слешей)
+        dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
 
     # --- Сборка проекта (C++) ---
 
