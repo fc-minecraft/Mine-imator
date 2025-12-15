@@ -43,10 +43,11 @@ jobs:
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: ${{ runner.os }}-ccache-
 
-    - name: Set up .NET 6
+    # Ставим современный .NET 8
+    - name: Set up .NET 8
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '6.0.x' 
+        dotnet-version: '8.0.x'
 
     - name: Set up Python
       uses: actions/setup-python@v4
@@ -67,18 +68,30 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Build CppGen
+    # --- Сборка CppGen (C#) ---
+    
+    - name: Upgrade to .NET 8 and Build CppGen
+      shell: bash
       run: |
+        # Автоматически меняем версию в файле проекта с net6.0 на net8.0
+        # Это уберет предупреждения и сделает сборку современной
+        sed -i 's/net6.0/net8.0/g' CppGen/CppGen/CppGen.csproj || (Get-Content CppGen/CppGen/CppGen.csproj).Replace('net6.0', 'net8.0') | Set-Content CppGen/CppGen/CppGen.csproj
+        
+        # Собираем
         dotnet build CppGen/CppGen.sln -c Release
 
     - name: Run CppGen
       shell: bash
       run: |
-        cp CppGen/gml.json .
-        cp CppGen/gml.json CppGen/CppGen/
-        mkdir -p CppGen/CppGen/bin/Release/net6.0/
-        cp CppGen/gml.json CppGen/CppGen/bin/Release/net6.0/
-        dotnet run --project CppGen/CppGen/CppGen.csproj -c Release --no-launch-profile -- -game "GmProject" -cpp "CppProject"
+        # ФИКС: Копируем gml.json прямо в папку с готовым exe/dll
+        # Теперь путь net8.0, так как мы обновили версию выше
+        cp CppGen/gml.json CppGen/CppGen/bin/Release/net8.0/
+        
+        # ЗАПУСК НАПРЯМУЮ (через dll), а не через dotnet run.
+        # Это решает проблему с путями.
+        dotnet CppGen/CppGen/bin/Release/net8.0/CppGen.dll -game "GmProject" -cpp "CppProject"
+
+    # --- Сборка проекта (C++) ---
 
     - name: Configure CMake
       run: |
@@ -95,6 +108,8 @@ jobs:
     - name: Build with CMake
       run: |
         cmake --build build --config Release
+
+    # --- Упаковка ---
 
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
