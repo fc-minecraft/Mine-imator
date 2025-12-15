@@ -67,19 +67,26 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Build CppGen
+    - name: Publish CppGen
       run: |
+        # Собираем все в папку tool. gml.json туда тоже попадет.
         dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o tool
 
     - name: Run CppGen
       shell: bash
       run: |
-        cp CppGen/CppGen/gml.json tool/gml.json
-        cp CppGen/CppGen/gml.json tool/GML.json 2>/dev/null || true
-        cp CppGen/CppGen/gml.json ./gml.json
-        cp CppGen/CppGen/gml.json ./GML.json 2>/dev/null || true
+        # 1. Формируем абсолютные пути для аргументов, чтобы не зависеть от рабочей папки
+        # Используем Python, чтобы пути были правильными для текущей ОС (\ или /)
+        GM_DIR=$(python -c "import os; print(os.path.abspath('GmProject'))")
+        CODE_DIR=$(python -c "import os; print(os.path.abspath(os.path.join('CppProject', 'Generated')))")
+        SPRITES_DIR=$(python -c "import os; print(os.path.abspath(os.path.join('CppProject', 'Asset', 'Sprites')))")
+        SHADERS_DIR=$(python -c "import os; print(os.path.abspath(os.path.join('CppProject', 'Asset', 'Shaders')))")
         
-        dotnet tool/CppGen.dll -game "GmProject" -cpp "CppProject"
+        # 2. Запускаем. Передаем ВСЕ 5 аргументов явно.
+        # json-файл лежит внутри папки tool, так как мы сделали publish.
+        dotnet tool/CppGen.dll "$GM_DIR" "$CODE_DIR" "$SPRITES_DIR" "$SHADERS_DIR" "tool/gml.json"
+
+    # --- Сборка проекта (C++) ---
 
     - name: Configure CMake
       run: |
@@ -96,6 +103,8 @@ jobs:
     - name: Build with CMake
       run: |
         cmake --build build --config Release
+
+    # --- Упаковка ---
 
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
