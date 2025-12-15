@@ -43,6 +43,7 @@ jobs:
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: ${{ runner.os }}-ccache-
 
+    # Используем актуальный .NET 8
     - name: Set up .NET 8
       uses: actions/setup-dotnet@v4
       with:
@@ -67,20 +68,24 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    - name: Upgrade to .NET 8 and Build CppGen
-      shell: bash
+    # --- Сборка CppGen (C#) ---
+    
+    - name: Build CppGen
       run: |
-        python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
+        # Собираем .csproj (это работает и на Win, и на Unix)
+        # Благодаря правке в csproj, gml.json сам скопируется в папку bin
         dotnet build CppGen/CppGen/CppGen.csproj -c Release
 
     - name: Run CppGen
       shell: bash
       run: |
-        mkdir -p CppGen/CppGen/bin/Release/net8.0/
-        cp CppGen/gml.json .
-        cp CppGen/gml.json CppGen/CppGen/
-        cp CppGen/gml.json CppGen/CppGen/bin/Release/net8.0/
-        dotnet CppGen/CppGen/bin/Release/net8.0/CppGen.dll -game "GmProject" -cpp "CppProject"
+        # Переходим в папку с готовым файлом, там уже лежит gml.json
+        cd CppGen/CppGen/bin/Release/net8.0
+        
+        # Запускаем генератор, указывая пути относительно бинарника
+        dotnet CppGen.dll -game "../../../../../GmProject" -cpp "../../../../../CppProject"
+
+    # --- Сборка проекта (C++) ---
 
     - name: Configure CMake
       run: |
@@ -97,6 +102,8 @@ jobs:
     - name: Build with CMake
       run: |
         cmake --build build --config Release
+
+    # --- Упаковка ---
 
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
