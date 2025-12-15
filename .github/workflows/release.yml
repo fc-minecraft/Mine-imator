@@ -43,7 +43,6 @@ jobs:
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: ${{ runner.os }}-ccache-
 
-    # Ставим современный .NET 8
     - name: Set up .NET 8
       uses: actions/setup-dotnet@v4
       with:
@@ -73,22 +72,20 @@ jobs:
     - name: Upgrade to .NET 8 and Build CppGen
       shell: bash
       run: |
-        # Автоматически меняем версию в файле проекта с net6.0 на net8.0
-        # Это уберет предупреждения и сделает сборку современной
-        sed -i 's/net6.0/net8.0/g' CppGen/CppGen/CppGen.csproj || (Get-Content CppGen/CppGen/CppGen.csproj).Replace('net6.0', 'net8.0') | Set-Content CppGen/CppGen/CppGen.csproj
+        # Используем Python для замены версии .NET, это работает везде одинаково
+        python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
         
-        # Собираем
         dotnet build CppGen/CppGen.sln -c Release
 
     - name: Run CppGen
       shell: bash
       run: |
-        # ФИКС: Копируем gml.json прямо в папку с готовым exe/dll
-        # Теперь путь net8.0, так как мы обновили версию выше
+        # Копируем конфиг и в корень, и к бинарнику (на всякий случай)
+        cp CppGen/gml.json .
+        mkdir -p CppGen/CppGen/bin/Release/net8.0/
         cp CppGen/gml.json CppGen/CppGen/bin/Release/net8.0/
         
-        # ЗАПУСК НАПРЯМУЮ (через dll), а не через dotnet run.
-        # Это решает проблему с путями.
+        # Запускаем DLL напрямую, чтобы не было путаницы с путями
         dotnet CppGen/CppGen/bin/Release/net8.0/CppGen.dll -game "GmProject" -cpp "CppProject"
 
     # --- Сборка проекта (C++) ---
