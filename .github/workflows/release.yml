@@ -81,21 +81,25 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
-        # 1. Раскидываем gml.json ВЕЗДЕ, где программа может его искать.
-        # Путь CppGen/CppGen/gml.json верный, так как ты его туда переместил.
+        # 1. Раскидываем gml.json
         cp CppGen/CppGen/gml.json ./gml.json
         cp CppGen/CppGen/gml.json ./BuildGen/gml.json
 
-        # 2. Создаем дубликаты с разным регистром для Linux.
-        # "2>/dev/null || true" означает: "если ошибка, молчи и продолжай".
-        # Это уберет ошибку "same file" на Windows/Mac.
+        # 2. Фикс регистра для Linux/Mac (глушим ошибки)
         cp gml.json GML.json 2>/dev/null || true
         cp gml.json Gml.json 2>/dev/null || true
         
-        # 3. ЗАПУСК ИЗ КОРНЯ (без cd)
-        # Мы находимся в корне, поэтому папки "GmProject" и "CppProject" видны сразу.
-        # Мы просто вызываем DLL по пути ./BuildGen/CppGen.dll
-        dotnet ./BuildGen/CppGen.dll -game "GmProject" -cpp "CppProject"
+        # 3. ПОЛУЧАЕМ ПРАВИЛЬНЫЕ ПУТИ ЧЕРЕЗ PYTHON
+        # Python сам определит, какие слеши нужны (/ или \) для текущей ОС
+        GM_PATH=$(python -c "import os; print(os.path.join(os.getcwd(), 'GmProject'))")
+        CPP_PATH=$(python -c "import os; print(os.path.join(os.getcwd(), 'CppProject'))")
+        
+        echo "Detected absolute paths:"
+        echo "Game: $GM_PATH"
+        echo "Cpp: $CPP_PATH"
+        
+        # Запускаем с этими путями
+        dotnet ./BuildGen/CppGen.dll -game "$GM_PATH" -cpp "$CPP_PATH"
 
     # --- Сборка проекта (C++) ---
 
