@@ -1,8 +1,9 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace CppGen
 {
@@ -46,37 +47,87 @@ namespace CppGen
 		};
 
 		// Main script entry.
-		// Arg 0 = GM project directory (default ../)
-		// Arg 1 = Scripts output directory (default ../CppProject/Generated)
-		// Arg 2 = Sprites output directory (default ../CppProject/Asset/Sprites)
-		// Arg 3 = Shaders output directory (default ../CppProject/Asset/Shaders)
-		// Arg 4 = gml.json file (default ./gml.json)
+		// Supports named arguments: -game <path>, -cpp <path>, -gml <path>
+		// Or legacy positional arguments:
+		// Arg 0 = GM project directory
+		// Arg 1 = Scripts output directory
+		// Arg 2 = Sprites output directory
+		// Arg 3 = Shaders output directory
+		// Arg 4 = gml.json file
 		static void Main(string[] args)
 		{
 			string workingDir = Directory.GetCurrentDirectory();
-			string parentDir = new DirectoryInfo(workingDir).Parent.FullName;
+
+			// Default values (legacy behavior attempt, though prone to failure if directory structure differs)
+			string parentDir = new DirectoryInfo(workingDir).Parent != null ? new DirectoryInfo(workingDir).Parent.FullName : workingDir;
 			string gmDir = parentDir;
-			string outputCodeDir = parentDir + @"\CppProject\Generated";
-			string outputSpritesDir = parentDir + @"\CppProject\Asset\Sprites";
-			string outputShadersDir = parentDir + @"\CppProject\Asset\Shaders";
-			string jsonFile = workingDir + @"\gml.json";
+			string cppDir = Path.Combine(parentDir, "CppProject");
+			string jsonFile = Path.Combine(workingDir, "gml.json");
+
 			bool genGmlFunc = true;
 
-			if (args.Length == 5)
+			// Check for named arguments
+			bool useNamedArgs = false;
+			for (int i = 0; i < args.Length; i++)
+			{
+				if (args[i].StartsWith("-"))
+				{
+					useNamedArgs = true;
+					break;
+				}
+			}
+
+			if (useNamedArgs)
+			{
+				for (int i = 0; i < args.Length; i++)
+				{
+					if (args[i] == "-game" && i + 1 < args.Length)
+						gmDir = args[++i];
+					else if (args[i] == "-cpp" && i + 1 < args.Length)
+						cppDir = args[++i];
+					else if (args[i] == "-gml" && i + 1 < args.Length)
+						jsonFile = args[++i];
+				}
+			}
+			else if (args.Length == 5)
 			{
 				gmDir = args[0];
+				// For legacy 5 args, we set output directories directly, but we need to infer cppDir for other uses if possible.
+				// We'll set cppDir to parent of args[1] as a best guess or just not use it where the individual variables are used.
+				cppDir = Path.GetDirectoryName(args[1]);
+			}
+
+			// Define output directories
+			string outputCodeDir = Path.Combine(cppDir, "Generated");
+			string outputSpritesDir = Path.Combine(cppDir, "Asset", "Sprites");
+			string outputShadersDir = Path.Combine(cppDir, "Asset", "Shaders");
+
+			// Override if legacy args were used
+			if (!useNamedArgs && args.Length == 5)
+			{
 				outputCodeDir = args[1];
 				outputSpritesDir = args[2];
 				outputShadersDir = args[3];
 				jsonFile = args[4];
 			}
 
+			// Normalize paths
+			gmDir = Path.GetFullPath(gmDir);
+			if (Directory.Exists(cppDir)) cppDir = Path.GetFullPath(cppDir); // Might not exist yet?
+			jsonFile = Path.GetFullPath(jsonFile);
+
+			Console.WriteLine("CppGen Settings:");
+			Console.WriteLine("  Working Dir: " + workingDir);
+			Console.WriteLine("  GM Project:  " + gmDir);
+			Console.WriteLine("  Output Code: " + outputCodeDir);
+			Console.WriteLine("  GML JSON:    " + jsonFile);
+
 			if (!File.Exists(jsonFile))
 			{
-				Console.WriteLine("FATAL ERROR: Could not find gml.json");
+				Console.WriteLine("FATAL ERROR: Could not find gml.json at " + jsonFile);
 				Environment.Exit(1);
 			}
-			if (new DirectoryInfo(gmDir).GetFiles("*.yyp").Length == 0)
+			if (!Directory.Exists(gmDir) || new DirectoryInfo(gmDir).GetFiles("*.yyp").Length == 0)
 			{
 				Console.WriteLine("FATAL ERROR: No GameMaker project found in {0}", gmDir);
 				Environment.Exit(1);
@@ -87,11 +138,15 @@ namespace CppGen
 			Strings.Add("");
 
 			// Parse sprites
-			string[] spriteDirs = Directory.GetDirectories(gmDir + @"\sprites");
-			foreach (string dir in spriteDirs)
+			string spritesDir = Path.Combine(gmDir, "sprites");
+			if (Directory.Exists(spritesDir))
 			{
-				Sprite spr = new Sprite(dir, outputSpritesDir);
-				Sprites.Add(spr.Name, spr);
+				string[] spriteDirs = Directory.GetDirectories(spritesDir).OrderBy(x => x).ToArray();
+				foreach (string dir in spriteDirs)
+				{
+					Sprite spr = new Sprite(dir, outputSpritesDir);
+					Sprites.Add(spr.Name, spr);
+				}
 			}
 
 			if (Sprite.TotalCopied > 0)
@@ -100,9 +155,10 @@ namespace CppGen
 				Console.WriteLine("No sprites were updated");
 
 			// Parse shaders
-			if (Directory.Exists(gmDir + @"\shaders"))
+			string shadersDir = Path.Combine(gmDir, "shaders");
+			if (Directory.Exists(shadersDir))
 			{
-				string[] shaderDirs = Directory.GetDirectories(gmDir + @"\shaders");
+				string[] shaderDirs = Directory.GetDirectories(shadersDir).OrderBy(x => x).ToArray();
 				foreach (string dir in shaderDirs)
 				{
 					Shader shader = new Shader(dir, outputShadersDir);
@@ -117,13 +173,22 @@ namespace CppGen
 				foreach (Shader.FileModification mod in Shader.Modifications)
 					Console.WriteLine("    " + mod.Source);
 
-				Console.WriteLine("Do you want to copy them over to the GameMaker project? (y/n)");
-				string input = Console.ReadLine();
-				if (input.ToLower().StartsWith("y"))
+				// In CI/headless mode, this waits forever. We should check if input is redirected or just skip.
+				// For now, let's assume no interactive input if not interactive.
+				if (!Console.IsInputRedirected)
 				{
-					foreach (Shader.FileModification mod in Shader.Modifications)
-						File.Copy(mod.Source, mod.Dest, true);
-					Shader.TotalCopied += Shader.Modifications.Count;
+					Console.WriteLine("Do you want to copy them over to the GameMaker project? (y/n)");
+					string input = Console.ReadLine();
+					if (input != null && input.ToLower().StartsWith("y"))
+					{
+						foreach (Shader.FileModification mod in Shader.Modifications)
+							File.Copy(mod.Source, mod.Dest, true);
+						Shader.TotalCopied += Shader.Modifications.Count;
+					}
+				}
+				else
+				{
+					Console.WriteLine("Skipping copy prompt (non-interactive mode).");
 				}
 			}
 
@@ -136,26 +201,35 @@ namespace CppGen
 			timer.Start();
 
 			// Parse script GML
-			string[] scriptDirs = Directory.GetDirectories(gmDir + @"\scripts");
-			foreach (string dir in scriptDirs)
+			string scriptsDir = Path.Combine(gmDir, "scripts");
+			if (Directory.Exists(scriptsDir))
 			{
-				DirectoryInfo dirInfo = new DirectoryInfo(dir);
-				FileInfo gmlInfo = new FileInfo(dir + "\\" + dirInfo.Name + ".gml");
-				if (!gmlInfo.Exists)
-					continue;
+				string[] scriptDirs = Directory.GetDirectories(scriptsDir).OrderBy(x => x).ToArray();
+				foreach (string dir in scriptDirs)
+				{
+					DirectoryInfo dirInfo = new DirectoryInfo(dir);
+					string gmlPath = Path.Combine(dir, dirInfo.Name + ".gml");
+					FileInfo gmlInfo = new FileInfo(gmlPath);
+					if (!gmlInfo.Exists)
+						continue;
 
-				GML.ParseGMLScript(gmlInfo.FullName);
+					GML.ParseGMLScript(gmlInfo.FullName);
+				}
 			}
 
 			timer.Stop();
 			Console.WriteLine("Parsed GML ({0} lines) in {1}ms", GML.TotalLines, (int)timer.Elapsed.TotalMilliseconds);
 
 			// Parse objects
-			string[] objectDirs = Directory.GetDirectories(gmDir + @"\objects");
-			foreach (string dir in objectDirs)
+			string objectsDir = Path.Combine(gmDir, "objects");
+			if (Directory.Exists(objectsDir))
 			{
-				Object obj = new Object(dir);
-				Objects[obj.Name] = obj;
+				string[] objectDirs = Directory.GetDirectories(objectsDir).OrderBy(x => x).ToArray();
+				foreach (string dir in objectDirs)
+				{
+					Object obj = new Object(dir);
+					Objects[obj.Name] = obj;
+				}
 			}
 
 			if (!Objects.ContainsKey("app"))
@@ -223,9 +297,12 @@ namespace CppGen
 
 			timer.Restart();
 
+			// Ensure output directory exists
+			Directory.CreateDirectory(outputCodeDir);
+
 			// Generate GmlFunc.hpp
 			if (genGmlFunc)
-				GML.ExportHeader(outputCodeDir + @"\GmlFunc.hpp");
+				GML.ExportHeader(Path.Combine(outputCodeDir, "GmlFunc.hpp"));
 
 			// Generate Scripts.hpp
 			CodeWriter.Begin();
@@ -323,7 +400,7 @@ namespace CppGen
 			CodeWriter.WriteLine();
 
 			CodeWriter.WriteLine("}", -1);
-			CodeWriter.End(outputCodeDir + @"\Scripts.hpp");
+			CodeWriter.End(Path.Combine(outputCodeDir, "Scripts.hpp"));
 
 			// Declare Globals.cpp
 			CodeWriter.Begin();
@@ -347,7 +424,7 @@ namespace CppGen
 			CodeWriter.WriteLine();
 
 			CodeWriter.WriteLine("}", -1);
-			CodeWriter.End(outputCodeDir + @"\Globals.cpp");
+			CodeWriter.End(Path.Combine(outputCodeDir, "Globals.cpp"));
 
 			// Generate Scripts1...n.cpp
 			const int maxLinePerFile = 1000;
@@ -387,14 +464,14 @@ namespace CppGen
 				}
 
 				CodeWriter.WriteLine("}", -1);
-				CodeWriter.End(outputCodeDir + @"\Scripts" + f + ".cpp");
+				CodeWriter.End(Path.Combine(outputCodeDir, "Scripts" + f + ".cpp"));
 				f++;
 			}
 
 			// Delete unused
 			while (true)
 			{
-				FileInfo file = new FileInfo(outputCodeDir + @"\Scripts" + f + ".cpp");
+				FileInfo file = new FileInfo(Path.Combine(outputCodeDir, "Scripts" + f + ".cpp"));
 				if (file.Exists)
 					file.Delete();
 				else
@@ -459,7 +536,7 @@ namespace CppGen
 			CodeWriter.WriteLine("}", -1);
 
 			CodeWriter.WriteLine("}", -1);
-			CodeWriter.End(outputCodeDir + @"\Mappings.cpp");
+			CodeWriter.End(Path.Combine(outputCodeDir, "Mappings.cpp"));
 
 			// Finished
 			Console.WriteLine("Generated code ({0} lines) in {1}ms", CodeWriter.TotalLines, (int)timer.Elapsed.TotalMilliseconds);
@@ -474,7 +551,6 @@ namespace CppGen
 			}
 			else
 				Console.WriteLine("Success!");
-			Console.ReadKey();
 		}
 
 		public static void ResolveProject()
@@ -763,13 +839,13 @@ namespace CppGen
 			foreach (string obj in objsStrings)
 				objsText += obj + "\n";
 
-			string logDir = Directory.GetCurrentDirectory() + @"\Logs";
+			string logDir = Path.Combine(Directory.GetCurrentDirectory(), "Logs");
 			Directory.CreateDirectory(logDir);
 			Console.WriteLine("Writing logs to {0}", logDir);
-			File.WriteAllText(logDir + @"\globalVars.log", globalVarsText);
-			File.WriteAllText(logDir + @"\unknownVars.log", unknownVarsText);
-			File.WriteAllText(logDir + @"\funcs.log", funcsText);
-			File.WriteAllText(logDir + @"\objs.log", objsText);
+			File.WriteAllText(Path.Combine(logDir, "globalVars.log"), globalVarsText);
+			File.WriteAllText(Path.Combine(logDir, "unknownVars.log"), unknownVarsText);
+			File.WriteAllText(Path.Combine(logDir, "funcs.log"), funcsText);
+			File.WriteAllText(Path.Combine(logDir, "objs.log"), objsText);
 		}
 	}
 }

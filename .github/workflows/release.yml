@@ -74,12 +74,7 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
-        cp CppGen/CppGen/gml.json tool/gml.json
-        cp CppGen/CppGen/gml.json tool/GML.json 2>/dev/null || true
-        cp CppGen/CppGen/gml.json ./gml.json
-        cp CppGen/CppGen/gml.json ./GML.json 2>/dev/null || true
-        
-        dotnet tool/CppGen.dll -game "GmProject" -cpp "CppProject"
+        dotnet tool/CppGen.dll -game "GmProject" -cpp "CppProject" -gml "CppGen/CppGen/gml.json"
 
     - name: Configure CMake
       run: |
