@@ -80,6 +80,8 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
+        find CppGen -name "gml.json" -exec cp {} . \;
+        
         dotnet run --project CppGen/CppGen/CppGen.csproj -c Release -- -game "GmProject" -cpp "CppProject"
 
     # --- Сборка проекта (C++) ---
