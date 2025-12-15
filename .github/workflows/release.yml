@@ -17,21 +17,18 @@ jobs:
         include:
           - os: windows-latest
             platform_name: Windows
-            shell: cmd
           - os: ubuntu-latest
             platform_name: Linux
-            shell: bash
           - os: macos-latest
             platform_name: macOS
-            shell: bash
 
     steps:
     - name: Checkout repository
       uses: actions/checkout@v4
       with:
-        submodules: recursive # На случай, если есть сабмодули
+        submodules: recursive
 
-    # --- Кэширование (Ускорение сборки) ---
+    # --- Кэширование ---
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
@@ -40,7 +37,6 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-nuget-
 
-    # Для C++ кэш (ccache) сильно ускоряет повторные сборки на Linux/Mac
     - name: Setup ccache
       if: matrix.os != 'windows-latest'
       uses: hendrikmuhs/ccache-action@v1.2
@@ -50,7 +46,6 @@ jobs:
 
     # --- Настройка окружения ---
     
-    # ФИКС ОШИБКИ: Явно устанавливаем .NET 6.0, так как его нет в новых образах
     - name: Set up .NET 6
       uses: actions/setup-dotnet@v4
       with:
@@ -65,19 +60,18 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
-        host: ${{ matrix.platform_name }}
+        # host: удален, так как экшен сам определит ОС (linux/windows/mac)
         target: 'desktop'
-        # Для Windows нужен конкретный архив, для остальных авто
         arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
         install-deps: 'true'
         modules: 'qtcharts qtwebengine'
-        cache: 'true' # Этот экшен сам умеет кэшировать Qt
+        cache: 'true'
 
     - name: Setup MSVC (Windows)
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    # --- Сборка генератора кода (C#) ---
+    # --- Сборка CppGen (C#) ---
     
     - name: Build CppGen
       run: |
@@ -86,15 +80,12 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
-        # Используем dotnet run для кроссплатформенности, это надежнее поиска exe
-        # -- указывает, что дальше идут аргументы самой программы
         dotnet run --project CppGen/CppGen/CppGen.csproj -c Release -- -game "GmProject" -cpp "CppProject"
 
     # --- Сборка проекта (C++) ---
 
     - name: Configure CMake
       run: |
-        # Добавляем флаги для ccache, если это не Windows
         if [ "${{ matrix.os }}" != "windows-latest" ]; then
           export CC="ccache gcc"
           export CXX="ccache g++"
@@ -118,8 +109,6 @@ jobs:
         mkdir release_dist
         copy build\Release\*.exe release_dist\
         xcopy /E /I GmProject\datafiles\Data release_dist\Data
-        
-        :: Деплой DLL для Qt
         windeployqt release_dist\*.exe --release --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-opengl-sw
 
     - name: Package (Unix - Mac/Linux)
@@ -127,16 +116,12 @@ jobs:
       shell: bash
       run: |
         mkdir release_dist
-        # Находим и копируем бинарник
+        # Копируем бинарник (ищем любой исполняемый файл без расширения)
         find build -type f -perm +111 -not -name ".*" -exec cp {} release_dist/ \; || find build -type f -perm /111 -not -name ".*" -exec cp {} release_dist/ \;
         
-        # Копируем данные
         if [ -d "GmProject/datafiles/Data" ]; then
           cp -r GmProject/datafiles/Data release_dist/
         fi
-        
-        # Для Mac часто нужен macdeployqt, но пока оставим просто копирование
-        # Если билд упадет на запуске, сюда нужно добавить вызов macdeployqt
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
@@ -147,7 +132,7 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/heads/') # Срабатывает на пуш в ветку
+    if: startsWith(github.ref, 'refs/heads/')
     permissions:
       contents: write
     steps:
@@ -158,7 +143,6 @@ jobs:
 
       - name: Zip Artifacts
         run: |
-          # Пакуем папки в zip архивы для релиза
           cd artifacts
           for dir in */; do
               platform=${dir%*/}
