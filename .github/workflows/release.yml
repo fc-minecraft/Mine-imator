@@ -28,7 +28,6 @@ jobs:
       with:
         submodules: recursive
 
-    # --- Кэширование ---
     - name: Cache NuGet packages
       uses: actions/cache@v4
       with:
@@ -44,8 +43,6 @@ jobs:
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: ${{ runner.os }}-ccache-
 
-    # --- Настройка окружения ---
-    
     - name: Set up .NET 6
       uses: actions/setup-dotnet@v4
       with:
@@ -60,7 +57,6 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
-        # host: удален, так как экшен сам определит ОС (linux/windows/mac)
         target: 'desktop'
         arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
         install-deps: 'true'
@@ -71,8 +67,6 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    # --- Сборка CppGen (C#) ---
-    
     - name: Build CppGen
       run: |
         dotnet build CppGen/CppGen.sln -c Release
@@ -80,11 +74,11 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
-        find CppGen -name "gml.json" -exec cp {} . \;
-        
-        dotnet run --project CppGen/CppGen/CppGen.csproj -c Release -- -game "GmProject" -cpp "CppProject"
-
-    # --- Сборка проекта (C++) ---
+        cp CppGen/gml.json .
+        cp CppGen/gml.json CppGen/CppGen/
+        mkdir -p CppGen/CppGen/bin/Release/net6.0/
+        cp CppGen/gml.json CppGen/CppGen/bin/Release/net6.0/
+        dotnet run --project CppGen/CppGen/CppGen.csproj -c Release --no-launch-profile -- -game "GmProject" -cpp "CppProject"
 
     - name: Configure CMake
       run: |
@@ -102,8 +96,6 @@ jobs:
       run: |
         cmake --build build --config Release
 
-    # --- Упаковка ---
-
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
       shell: cmd
@@ -118,9 +110,7 @@ jobs:
       shell: bash
       run: |
         mkdir release_dist
-        # Копируем бинарник (ищем любой исполняемый файл без расширения)
         find build -type f -perm +111 -not -name ".*" -exec cp {} release_dist/ \; || find build -type f -perm /111 -not -name ".*" -exec cp {} release_dist/ \;
-        
         if [ -d "GmProject/datafiles/Data" ]; then
           cp -r GmProject/datafiles/Data release_dist/
         fi
