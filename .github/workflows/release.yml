@@ -72,30 +72,29 @@ jobs:
     - name: Build CppGen
       shell: bash
       run: |
-        # Патчим версию .NET на 8.0 (работает везде)
+        # Патчим версию .NET на 8.0
         python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
         
-        # Собираем в папку BuildGen в корне репозитория
+        # Собираем в папку BuildGen
         dotnet build CppGen/CppGen/CppGen.csproj -c Release -o ./BuildGen
 
     - name: Run CppGen
       shell: bash
       run: |
-        # 1. ЯВНО копируем файл конфигурации в папку запуска
-        # Берем из CppGen/CppGen/gml.json (где ты его оставил)
+        # 1. Копируем конфиг в папку запуска
+        # (Путь CppGen/CppGen/gml.json правильный, так как ты его туда переместил)
         cp CppGen/CppGen/gml.json ./BuildGen/gml.json
 
-        # Заходим в папку с программой
         cd BuildGen
         
-        # 2. ФИКС ДЛЯ MAC/LINUX (Case Sensitivity)
-        # Создаем копии с разными именами, чтобы система нашла файл при любом написании в коде
-        cp gml.json GML.json
-        cp gml.json Gml.json
+        # 2. УМНАЯ ПРОВЕРКА: Копируем файлы только на Linux.
+        # На Mac/Windows файловая система сама поймет разницу регистров, а cp выдаст ошибку.
+        if [ "${{ runner.os }}" == "Linux" ]; then
+          cp gml.json GML.json
+          cp gml.json Gml.json
+        fi
         
-        # 3. ЗАПУСК С АБСОЛЮТНЫМИ ПУТЯМИ
-        # ${{ github.workspace }} - это полный путь (D:\a\Mine-imator\...)
-        # Это решает проблему "No GameMaker project found"
+        # 3. Запускаем с АБСОЛЮТНЫМИ ПУТЯМИ
         dotnet CppGen.dll -game "${{ github.workspace }}/GmProject" -cpp "${{ github.workspace }}/CppProject"
 
     # --- Сборка проекта (C++) ---
