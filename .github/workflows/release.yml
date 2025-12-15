@@ -71,20 +71,18 @@ jobs:
     
     - name: Build CppGen
       run: |
-        # Флаг -o ./BuildGen заставит dotnet положить ВСЕ файлы в папку BuildGen в корне.
-        # И dll, и скопированный gml.json будут там.
+        # Собираем проект в папку BuildGen в корне репозитория.
+        # gml.json скопируется туда АВТОМАТИЧЕСКИ.
         dotnet build CppGen/CppGen/CppGen.csproj -c Release -o ./BuildGen
 
     - name: Run CppGen
       shell: bash
       run: |
-        # Переходим в созданную нами папку
+        # Заходим в папку, где лежит собранный проект и gml.json
         cd BuildGen
         
-        # Проверяем наличие файла (для отладки в логах, если вдруг что)
-        ls -la || dir
-        
-        # Запускаем. Пути к проектам теперь на один уровень вверх (..)
+        # Запускаем.
+        # "../GmProject" значит "папка на уровень выше", так как мы сейчас внутри BuildGen
         dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
 
     # --- Сборка проекта (C++) ---
