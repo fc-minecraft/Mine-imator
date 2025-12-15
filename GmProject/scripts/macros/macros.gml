@@ -45,7 +45,7 @@ function macros()
 	#macro splash_directory				data_directory + "Splashes/"
 	
 	// Files
-	#macro language_file				languages_directory + "english.milanguage"
+	#macro language_file				languages_directory + "russian.milanguage"
 	#macro languages_file				data_directory + "languages.midata"
 	#macro legacy_file					data_directory + "legacy.midata"
 	#macro settings_file				user_directory_get() + "settings.midata"
@@ -83,25 +83,25 @@ function macros()
 	#macro mc_glint_item_file			mc_textures_directory + "misc/enchanted_glint_item.png"
 	
 	// Links
-	#macro link_website					"https://www.mineimator.com"
+	#macro link_website					""
 	#macro link_tutorials				"https://www.mineimator.com/tutorials2"
-	#macro link_download				"https://www.mineimator.com/download"
-	#macro link_upgrade					"https://www.mineimator.com/upgrade"
-	#macro link_assets					"https://www.mineimator.com/assets/"
+	#macro link_download				""
+	#macro link_upgrade					""
+	#macro link_assets					""
 	#macro link_assets_versions			link_assets + "versions.midata"
-	#macro link_news					"https://www.mineimator.com/news.php?version=" + mineimator_version + "&platform=" + string(platform_get()) + "&os=" + os_get()
-	#macro link_skins					"https://www.mineimator.com/skin?username="
-	#macro link_forums					"https://www.mineimatorforums.com"
-	#macro link_forums_bugs				"https://www.mineimatorforums.com/index.php?/forum/51-issues-and-bugs/&do=add"
-	#macro link_forums_upload			"https://www.mineimatorforums.com/index.php?/topic/10-guide-how-to-post-a-mine-imator-project/"
-	#macro link_minecraft				"https://www.minecraft.net"
-	#macro link_david					"https://www.stuffbydavid.com"
-	#macro link_modelbench				"https://www.mineimator.com/modelbench"
-	#macro link_twitter					"https://www.mineimator.com/tweets"
-	#macro link_discord					"https://www.mineimator.com/discord"
-	#macro link_donate					"https://www.mineimator.com/donate"
-	#macro link_article_drivers			"https://www.thewindowsclub.com/how-to-update-graphics-drivers-windows"
-	#macro show_modelbench_popup		true
+	#macro link_news					""
+	#macro link_skins					""
+	#macro link_forums					""
+	#macro link_forums_bugs				""
+	#macro link_forums_upload			""
+	#macro link_minecraft				""
+	#macro link_david					""
+	#macro link_modelbench				""
+	#macro link_twitter					""
+	#macro link_discord					""
+	#macro link_donate					""
+	#macro link_article_drivers			""
+	#macro show_modelbench_popup		false
 	#macro http_ok						200
 	#macro http_bad_request				400
 	

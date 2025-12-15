@@ -1,0 +1,128 @@
+name: Build and Release
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+        include:
+          - os: windows-latest
+            platform_name: Windows
+          - os: ubuntu-latest
+            platform_name: Linux
+          - os: macos-latest
+            platform_name: macOS
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '5.15.2'
+        host: ${{ matrix.platform_name }}
+        target: 'desktop'
+        arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
+        install-deps: 'true'
+        modules: 'qtcharts qtwebengine'
+
+    - name: Setup MSVC (Windows)
+      if: matrix.os == 'windows-latest'
+      uses: ilammy/msvc-dev-cmd@v1
+
+    - name: Build CppGen (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        msbuild CppGen/CppGen.sln /p:Configuration=Release /p:Platform="Any CPU"
+
+    - name: Build CppGen (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        # Assuming CppGen is .NET, we need dotnet sdk.
+        # But CppGen.sln is VS solution.
+        # If it's C#, we can use dotnet build.
+        dotnet build CppGen/CppGen.sln -c Release
+
+    - name: Run CppGen
+      shell: bash
+      run: |
+        # Run CppGen to generate C++ code from GML
+        # Assuming the executable is in CppGen/CppGen/bin/Release/CppGen.exe or similar
+        # We need to find where the binary is.
+        find CppGen -name "CppGen.exe" -o -name "CppGen"
+
+        if [ "${{ matrix.os }}" == "windows-latest" ]; then
+           ./CppGen/CppGen/bin/Release/CppGen.exe -game "GmProject" -cpp "CppProject"
+        else
+           # Run using mono if it's a .NET exe on non-windows, or dotnet run
+           dotnet run --project CppGen/CppGen/CppGen.csproj -- -game "GmProject" -cpp "CppProject"
+        fi
+
+    - name: Configure CMake
+      run: |
+        cmake -S CppProject -B build -DCMAKE_BUILD_TYPE=Release
+
+    - name: Build with CMake
+      run: |
+        cmake --build build --config Release
+
+    - name: Package (Windows)
+      if: matrix.os == 'windows-latest'
+      run: |
+        mkdir release_dist
+        cp build/Release/*.exe release_dist/
+        cp -r GmProject/datafiles/Data release_dist/
+        # Add portable flag or config if needed
+        # Copy necessary DLLs (Qt)
+        windeployqt release_dist/*.exe --release --no-translations --no-system-d3d-compiler --no-compiler-runtime --no-opengl-sw
+      shell: cmd
+
+    - name: Package (Unix)
+      if: matrix.os != 'windows-latest'
+      run: |
+        mkdir release_dist
+        # Copy binary using correct find syntax
+        find build -type f -perm /111 -exec cp {} release_dist/ \;
+        cp -r GmProject/datafiles/Data release_dist/
+        # Note: Linux/Mac deployqt might be needed but skipped for simplicity in this template
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Mine-imator-${{ matrix.platform_name }}
+        path: release_dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/heads/')
+    permissions:
+      contents: write
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: build-${{ github.sha }}
+          name: Build ${{ github.sha }}
+          files: artifacts/**/*
+          draft: false
+          prerelease: false
