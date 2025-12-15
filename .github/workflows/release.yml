@@ -67,32 +67,19 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    # --- Сборка CppGen (C#) ---
-    
-    # 1. Сборка (Универсально)
-    - name: Publish CppGen
+    - name: Build CppGen
       run: |
-        dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o tool_build
+        dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o tool
 
-    # 2. Запуск на Windows (Используем CMD чтобы пути были D:\... с обратными слэшами)
-    - name: Run CppGen (Windows)
-      if: matrix.os == 'windows-latest'
-      shell: cmd
-      run: |
-        cd tool_build
-        dotnet CppGen.dll -game "..\GmProject" -cpp "..\CppProject"
-
-    # 3. Запуск на Mac/Linux (Используем Bash и фиксим возможный регистр gml.json)
-    - name: Run CppGen (Unix)
-      if: matrix.os != 'windows-latest'
+    - name: Run CppGen
       shell: bash
       run: |
-        cd tool_build
-        # Создаем копию с капсом на случай, если код требует GML.json (частая проблема на Linux)
-        cp gml.json GML.json 2>/dev/null || true
-        dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
-
-    # --- Сборка проекта (C++) ---
+        cp CppGen/CppGen/gml.json tool/gml.json
+        cp CppGen/CppGen/gml.json tool/GML.json 2>/dev/null || true
+        cp CppGen/CppGen/gml.json ./gml.json
+        cp CppGen/CppGen/gml.json ./GML.json 2>/dev/null || true
+        
+        dotnet tool/CppGen.dll -game "GmProject" -cpp "CppProject"
 
     - name: Configure CMake
       run: |
@@ -109,8 +96,6 @@ jobs:
     - name: Build with CMake
       run: |
         cmake --build build --config Release
-
-    # --- Упаковка ---
 
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
