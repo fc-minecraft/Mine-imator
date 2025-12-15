@@ -69,37 +69,23 @@ jobs:
 
     # --- Сборка CppGen (C#) ---
     
-    - name: Build CppGen
-      shell: bash
+    - name: Publish CppGen
       run: |
-        # Патчим версию .NET на 8.0
-        python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
-        
-        # Собираем в папку BuildGen в корне
-        dotnet build CppGen/CppGen/CppGen.csproj -c Release -o ./BuildGen
+        # ПРАВИЛЬНЫЙ СПОСОБ:
+        # publish собирает exe, dll и все файлы Content (gml.json) в одну папку "out".
+        # Это работает одинаково надежно на всех ОС.
+        dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o out
 
     - name: Run CppGen
       shell: bash
       run: |
-        # 1. Раскидываем gml.json
-        cp CppGen/CppGen/gml.json ./gml.json
-        cp CppGen/CppGen/gml.json ./BuildGen/gml.json
-
-        # 2. Фикс регистра для Linux/Mac (глушим ошибки)
-        cp gml.json GML.json 2>/dev/null || true
-        cp gml.json Gml.json 2>/dev/null || true
+        # Заходим в папку с готовой программой.
+        # gml.json ТУТ ГАРАНТИРОВАННО ЕСТЬ, потому что мы сделали publish.
+        cd out
         
-        # 3. ПОЛУЧАЕМ ПРАВИЛЬНЫЕ ПУТИ ЧЕРЕЗ PYTHON
-        # Python сам определит, какие слеши нужны (/ или \) для текущей ОС
-        GM_PATH=$(python -c "import os; print(os.path.join(os.getcwd(), 'GmProject'))")
-        CPP_PATH=$(python -c "import os; print(os.path.join(os.getcwd(), 'CppProject'))")
-        
-        echo "Detected absolute paths:"
-        echo "Game: $GM_PATH"
-        echo "Cpp: $CPP_PATH"
-        
-        # Запускаем с этими путями
-        dotnet ./BuildGen/CppGen.dll -game "$GM_PATH" -cpp "$CPP_PATH"
+        # Запускаем.
+        # Так как мы внутри папки "out", проекты лежат на уровень выше (../)
+        dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
 
     # --- Сборка проекта (C++) ---
 
