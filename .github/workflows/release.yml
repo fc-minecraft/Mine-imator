@@ -67,28 +67,20 @@ jobs:
       if: matrix.os == 'windows-latest'
       uses: ilammy/msvc-dev-cmd@v1
 
-    # --- Сборка CppGen (C#) ---
-    
     - name: Upgrade to .NET 8 and Build CppGen
       shell: bash
       run: |
-        # Патчим версию .NET на 8.0 через Python (работает везде)
         python -c "p='CppGen/CppGen/CppGen.csproj'; d=open(p).read(); open(p,'w').write(d.replace('net6.0','net8.0'))"
-        
-        # ФИКС: Собираем именно .csproj, а не .sln. Это решает ошибку конфигурации Release|x64 на Windows
         dotnet build CppGen/CppGen/CppGen.csproj -c Release
 
     - name: Run CppGen
       shell: bash
       run: |
-        # Копируем gml.json прямо в папку с готовым exe/dll
         mkdir -p CppGen/CppGen/bin/Release/net8.0/
+        cp CppGen/gml.json .
+        cp CppGen/gml.json CppGen/CppGen/
         cp CppGen/gml.json CppGen/CppGen/bin/Release/net8.0/
-        
-        # Запускаем DLL напрямую
         dotnet CppGen/CppGen/bin/Release/net8.0/CppGen.dll -game "GmProject" -cpp "CppProject"
-
-    # --- Сборка проекта (C++) ---
 
     - name: Configure CMake
       run: |
@@ -105,8 +97,6 @@ jobs:
     - name: Build with CMake
       run: |
         cmake --build build --config Release
-
-    # --- Упаковка ---
 
     - name: Package (Windows)
       if: matrix.os == 'windows-latest'
