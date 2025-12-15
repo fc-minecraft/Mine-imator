@@ -69,22 +69,27 @@ jobs:
 
     # --- Сборка CppGen (C#) ---
     
+    # 1. Сборка (Универсально)
     - name: Publish CppGen
       run: |
-        # ПРАВИЛЬНЫЙ СПОСОБ:
-        # publish собирает exe, dll и все файлы Content (gml.json) в одну папку "out".
-        # Это работает одинаково надежно на всех ОС.
-        dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o out
+        dotnet publish CppGen/CppGen/CppGen.csproj -c Release -o tool_build
 
-    - name: Run CppGen
+    # 2. Запуск на Windows (Используем CMD чтобы пути были D:\... с обратными слэшами)
+    - name: Run CppGen (Windows)
+      if: matrix.os == 'windows-latest'
+      shell: cmd
+      run: |
+        cd tool_build
+        dotnet CppGen.dll -game "..\GmProject" -cpp "..\CppProject"
+
+    # 3. Запуск на Mac/Linux (Используем Bash и фиксим возможный регистр gml.json)
+    - name: Run CppGen (Unix)
+      if: matrix.os != 'windows-latest'
       shell: bash
       run: |
-        # Заходим в папку с готовой программой.
-        # gml.json ТУТ ГАРАНТИРОВАННО ЕСТЬ, потому что мы сделали publish.
-        cd out
-        
-        # Запускаем.
-        # Так как мы внутри папки "out", проекты лежат на уровень выше (../)
+        cd tool_build
+        # Создаем копию с капсом на случай, если код требует GML.json (частая проблема на Linux)
+        cp gml.json GML.json 2>/dev/null || true
         dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
 
     # --- Сборка проекта (C++) ---
