@@ -81,19 +81,21 @@ jobs:
     - name: Run CppGen
       shell: bash
       run: |
-        # 1. Копируем конфиг. Путь CppGen/CppGen/gml.json правильный (ты его переместил ранее)
+        # 1. Раскидываем gml.json ВЕЗДЕ, где программа может его искать.
+        # Путь CppGen/CppGen/gml.json верный, так как ты его туда переместил.
+        cp CppGen/CppGen/gml.json ./gml.json
         cp CppGen/CppGen/gml.json ./BuildGen/gml.json
 
-        cd BuildGen
+        # 2. Создаем дубликаты с разным регистром для Linux.
+        # "2>/dev/null || true" означает: "если ошибка, молчи и продолжай".
+        # Это уберет ошибку "same file" на Windows/Mac.
+        cp gml.json GML.json 2>/dev/null || true
+        cp gml.json Gml.json 2>/dev/null || true
         
-        # 2. Создаем дубликаты с разным регистром БЕЗ ПРОВЕРОК (работает везде и надежно)
-        # Это решает проблему "Could not find gml.json" на Mac/Linux
-        cp gml.json GML.json || true
-        cp gml.json Gml.json || true
-        
-        # 3. Запускаем с ОТНОСИТЕЛЬНЫМИ ПУТЯМИ (../)
-        # Это решает проблему "No GameMaker project found" на Windows (из-за слешей)
-        dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
+        # 3. ЗАПУСК ИЗ КОРНЯ (без cd)
+        # Мы находимся в корне, поэтому папки "GmProject" и "CppProject" видны сразу.
+        # Мы просто вызываем DLL по пути ./BuildGen/CppGen.dll
+        dotnet ./BuildGen/CppGen.dll -game "GmProject" -cpp "CppProject"
 
     # --- Сборка проекта (C++) ---
 
