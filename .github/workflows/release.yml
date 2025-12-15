@@ -16,10 +16,13 @@ jobs:
         include:
           - os: windows-latest
             platform_name: Windows
+            qt_host: windows
           - os: ubuntu-latest
             platform_name: Linux
+            qt_host: linux
           - os: macos-latest
             platform_name: macOS
+            qt_host: mac
 
     steps:
     - name: Checkout repository
@@ -34,7 +37,7 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
-        host: ${{ matrix.platform_name }}
+        host: ${{ matrix.qt_host }}
         target: 'desktop'
         arch: ${{ matrix.os == 'windows-latest' && 'win64_msvc2019_64' || '' }}
         install-deps: 'true'
