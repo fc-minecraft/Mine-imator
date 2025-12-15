@@ -43,7 +43,6 @@ jobs:
         key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: ${{ runner.os }}-ccache-
 
-    # Используем актуальный .NET 8
     - name: Set up .NET 8
       uses: actions/setup-dotnet@v4
       with:
@@ -72,18 +71,21 @@ jobs:
     
     - name: Build CppGen
       run: |
-        # Собираем .csproj (это работает и на Win, и на Unix)
-        # Благодаря правке в csproj, gml.json сам скопируется в папку bin
-        dotnet build CppGen/CppGen/CppGen.csproj -c Release
+        # Флаг -o ./BuildGen заставит dotnet положить ВСЕ файлы в папку BuildGen в корне.
+        # И dll, и скопированный gml.json будут там.
+        dotnet build CppGen/CppGen/CppGen.csproj -c Release -o ./BuildGen
 
     - name: Run CppGen
       shell: bash
       run: |
-        # Переходим в папку с готовым файлом, там уже лежит gml.json
-        cd CppGen/CppGen/bin/Release/net8.0
+        # Переходим в созданную нами папку
+        cd BuildGen
         
-        # Запускаем генератор, указывая пути относительно бинарника
-        dotnet CppGen.dll -game "../../../../../GmProject" -cpp "../../../../../CppProject"
+        # Проверяем наличие файла (для отладки в логах, если вдруг что)
+        ls -la || dir
+        
+        # Запускаем. Пути к проектам теперь на один уровень вверх (..)
+        dotnet CppGen.dll -game "../GmProject" -cpp "../CppProject"
 
     # --- Сборка проекта (C++) ---
 
