@@ -149,7 +149,8 @@ namespace CppProject
 		inline operator StringType() const { return ToStr(); } // string = var
 		operator VecType() const; // vec = var
 		operator MatrixType() const; // matrix = var
-		operator ArrType() const; // array = var
+		// operator ArrType() const; // array = var
+		inline operator const ArrType& () const { return Arr(); }
 
 		// Value reference
 		RealType& Real();
@@ -166,6 +167,7 @@ namespace CppProject
 		inline operator VecType& () { return Vec(); }
 		inline operator MatrixType& () { return Mat(); }
 		inline operator ArrType& () { return Arr(); }
+		// inline operator const ArrType& () const { return Arr(); }
 
 		// Const reference
 		RealType Real() const;

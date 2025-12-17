@@ -1,0 +1,184 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qtbase5-dev qttools5-dev qt5-qmake libopenal-dev libfreetype-dev libzip-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libvdpau-dev libva-dev libsndio-dev libx264-dev libgnutls28-dev nettle-dev libx11-dev
+
+      - name: Build
+        run: |
+          mkdir Build
+          cd Build
+          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 ../CppProject
+          cmake --build . --config Release -j$(nproc)
+
+      - name: Package
+        run: |
+          mkdir -p Release
+          cp Build/Mine-imator Release/
+          cp -r GmProject/datafiles/* Release/
+
+          cd Release
+          tar -czvf ../Mine-imator-Linux.tar.gz .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mine-imator-Linux
+          path: Mine-imator-Linux.tar.gz
+
+  build-windows:
+    runs-on: windows-2022
+    env:
+      DEV_DIR: C:\Dev
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Environment Variables
+        run: |
+          echo "DEV_DIR=C:\Dev" >> $env:GITHUB_ENV
+          echo "C:\Dev\bin" >> $env:GITHUB_PATH
+
+      - name: Create Directories
+        run: |
+          New-Item -ItemType Directory -Force -Path C:\Dev
+          New-Item -ItemType Directory -Force -Path C:\Dev\OpenSSL
+
+      - name: Cache Qt Build
+        id: cache-qt
+        uses: actions/cache@v4
+        with:
+          path: C:\Dev\Qt\5.15.9\build
+          key: ${{ runner.os }}-qt-5.15.9-static-v1
+
+      - name: Install Tools (NASM, Perl, Python)
+        run: |
+          choco install nasm strawberryperl python -y
+
+      - name: Install OpenSSL (Manual Simulation)
+        # In a real scenario, downloading form slproweb might be flaky or slow.
+        # Using a reliable source or pre-installed if available.
+        # Windows-2022 has OpenSSL but maybe not the static libs in the structure expected.
+        # We will try to download a prebuilt OpenSSL or use choco.
+        run: |
+          choco install openssl --version 3.1.0 -y
+          # Setup directory structure as expected by scripts if needed, or adjust scripts.
+          # The user instructions say "Download Win64 OpenSSL v3.x... Install to C:\Dev\OpenSSL".
+          # We can try to automate downloading the installer or zip.
+          # For now, let's assume we can use a script to download it.
+
+      - name: Run Setup Dependencies
+        shell: powershell
+        run: |
+          ./DOP/setup_environment.ps1
+          # Note: setup_environment.ps1 might interact with UI or require restarts.
+          # We might need to run individual commands from it.
+
+      - name: Manual OpenSSL Install (Automation)
+        shell: powershell
+        run: |
+          # Download OpenSSL
+          Invoke-WebRequest -Uri "https://slproweb.com/download/Win64OpenSSL-3_1_4.exe" -OutFile "openssl-installer.exe"
+          # Silent install
+          ./openssl-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /DIR="C:\Dev\OpenSSL"
+
+      - name: Setup Headers and Libs
+        shell: powershell
+        run: |
+          ./DOP/setup_dependencies_v2.ps1
+          ./DOP/setup_headers.ps1
+          ./DOP/fix_headers.ps1
+
+      - name: Compile Qt (If not cached)
+        if: steps.cache-qt.outputs.cache-hit != 'true'
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          cd C:\Dev\Qt\5.15.9
+          # Configure command from user instructions
+          configure.bat -platform win32-msvc -prefix "C:/Dev/Qt/5.15.9/build" -opensource -confirm-license -release -static -static-runtime -qt-libjpeg -opengl desktop -openssl-linked -I"C:/Dev/OpenSSL/include" -L"C:/Dev/OpenSSL/lib/VC/x64/MT" OPENSSL_LIBS="-lWs2_32 -lGdi32 -lAdvapi32 -lCrypt32 -lUser32 -llibssl -llibcrypto" -no-icu -nomake tests -nomake examples -nomake tools -skip qt3d -skip qtmultimedia -skip activeqt -skip qtandroidextras -skip qtconnectivity -skip datavis3d -skip qtdoc -skip gamepad -skip qtgraphicaleffects -skip qtcharts -skip qtlocation -skip qtlottie -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtvirtualkeyboard -skip qtwayland -skip qtwebengine -skip qtwebglplugin -skip qtwebchannel -skip qtwebsockets -skip qtwebview -skip qtxmlpatterns
+          C:\Dev\Jom\jom.exe
+          C:\Dev\Jom\jom.exe install
+
+      - name: Build Mine-imator
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
+          mkdir Build
+          cd Build
+          cmake -G "Visual Studio 17 2022" -A x64 ..
+          cmake --build . --config Release
+
+      - name: Package
+        shell: powershell
+        run: |
+          New-Item -ItemType Directory -Force -Path Release
+          Copy-Item "Build/Release/Mine-imator.exe" -Destination "Release/"
+          Copy-Item -Recurse "GmProject/datafiles/*" -Destination "Release/"
+          Compress-Archive -Path "Release/*" -DestinationPath "Mine-imator-Windows.zip"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mine-imator-Windows
+          path: Mine-imator-Windows.zip
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          brew install qt@5 ffmpeg libzip freetype openal-soft cmake
+          brew link qt@5 --force
+
+      - name: Build
+        run: |
+          mkdir Build
+          cd Build
+          # Need to point CMake to brew installed Qt and libs
+          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) ../CppProject
+          cmake --build . --config Release -j$(sysctl -n hw.ncpu)
+
+      - name: Package
+        run: |
+          mkdir Release
+          cp Build/Mine-imator Release/
+          cp -r GmProject/datafiles/* Release/
+          tar -czvf Mine-imator-macOS.tar.gz Release
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mine-imator-macOS
+          path: Mine-imator-macOS.tar.gz
+
+  release:
+    needs: [build-linux, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/Mine-imator-Linux/Mine-imator-Linux.tar.gz
+            artifacts/Mine-imator-Windows/Mine-imator-Windows.zip
+            artifacts/Mine-imator-macOS/Mine-imator-macOS.tar.gz

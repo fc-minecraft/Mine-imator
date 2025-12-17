@@ -77,10 +77,10 @@ namespace CppProject
 		return ToMat();
 	}
 
-	VarType::operator ArrType() const
-	{
-		return ToArr();
-	}
+	// VarType::operator ArrType() const
+	// {
+	// 	return ToArr();
+	// }
 
 	RealType& VarType::Real()
 	{

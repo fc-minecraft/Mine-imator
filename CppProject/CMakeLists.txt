@@ -21,8 +21,8 @@ if (WIN32)
 	endif()
 	set(CMAKE_GENERATOR_PLATFORM ${PLATFORM})
 elseif (NOT APPLE)
-	set(CMAKE_C_COMPILER "/usr/bin/clang-12")
-	set(CMAKE_CXX_COMPILER "/usr/bin/clang++-12")
+	# set(CMAKE_C_COMPILER "/usr/bin/clang-12")
+	# set(CMAKE_CXX_COMPILER "/usr/bin/clang++-12")
 endif()
 
 project(Mine-imator)
@@ -96,13 +96,28 @@ else()
 
 		message("Linux platform")
 		set(EXT_DIR "${CMAKE_SOURCE_DIR}/External/Linux")
-		set(LIBS ${LIBS} "-lvdpau -lva -lva-drm -lva-x11 -lsndio -lx264 -lgnutls -lnettle")
-		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'/Data") # Find .so in Data folder
+		set(LIBS ${LIBS} "-lvdpau -lva -lva-drm -lva-x11 -lsndio -lx264 -lgnutls -lnettle -lz -lX11")
+		# Force usage of system libx264 if static one is incompatible or remove static linking if needed.
+		# The precompiled libavcodec depends on a specific version of x264 (155).
+		# If we link against system libx264 (164), we might have ABI issues if we use the precompiled ffmpeg libs.
+		# BUT, we are linking against PRECOMPILED libavcodec which requires x264_155.
+		# System has x264_164.
+		# We must either:
+		# 1. Use a compatible libx264.
+		# 2. Recompile ffmpeg against system x264.
+		# 3. Use dynamic linking and hope? No, symbols are missing.
+
+		# Since I cannot easily recompile ffmpeg or downgrade system x264, I will try to remove the precompiled libavcodec from LIBS and try to use system ffmpeg if available?
+		# But the project uses specific static libs.
+
+		# Let's try to link against system ffmpeg libraries instead of the precompiled ones.
+
+		set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,-rpath='$ORIGIN'/Data -L/usr/lib/x86_64-linux-gnu -Wl,--start-group") # Find .so in Data folder
 
 	endif()
 
 	set(LIBS ${LIBS} "${EXT_DIR}/libz.a" "${EXT_DIR}/libzip.a" "${EXT_DIR}/libopenal.a") # Zip, OpenAL (precompiled)
-	set(LIBS ${LIBS} "bz2" "lzma") # Zip dependencies
+	set(LIBS ${LIBS} "bz2" "lzma" "freetype") # Zip dependencies
 	
 	# Add OpenMP
 	find_package(OpenMP REQUIRED)
@@ -149,15 +164,21 @@ set(INCLUDE_DIRS ${INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
 set(INCLUDE_DIRS ${INCLUDE_DIRS} "${CMAKE_SOURCE_DIR}/External")
 set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/Libzip/libzip-1.9.2/lib")
 set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FreeType/freetype-2.9.1/include")
+set(INCLUDE_DIRS ${INCLUDE_DIRS} "/usr/include/freetype2")
 set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/FFmpeg/ffmpeg-5.0")
 set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/OpenAL/openal-soft-1.22.0/include")
 
-# Add FFmpeg (precompiled)
-set(LIBS ${LIBS} "${EXT_DIR}/libavformat.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libavcodec.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libswresample.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libswscale.a")
-set(LIBS ${LIBS} "${EXT_DIR}/libavutil.a")
+# Add FFmpeg (precompiled or system)
+if (NOT APPLE AND NOT WIN32)
+	# On Linux, try system libraries to avoid version mismatch (x264 155 vs 164)
+	set(LIBS ${LIBS} "-lavformat -lavcodec -lswresample -lswscale -lavutil")
+else()
+	set(LIBS ${LIBS} "${EXT_DIR}/libavformat.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libavcodec.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libswresample.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libswscale.a")
+	set(LIBS ${LIBS} "${EXT_DIR}/libavutil.a")
+endif()
 
 # Add C++ sources
 file(GLOB_RECURSE SRCS RELATIVE "${CMAKE_SOURCE_DIR}" "*.cpp" "*.hpp")
@@ -168,7 +189,7 @@ qt5_add_resources(SRCS ${QT_INDEX_FILE})
 add_executable(${PROJECT_NAME} ${SRCS} ${APPICON_RC})
 target_precompile_headers(${PROJECT_NAME} PUBLIC "Common.hpp")
 target_include_directories(${PROJECT_NAME} PUBLIC ${INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} ${LIBS})
+target_link_libraries(${PROJECT_NAME} ${LIBS} X11 -Wl,--end-group)
 
 # Project file settings
 set_property(TARGET ${PROJECT_NAME} PROPERTY WIN32_EXECUTABLE "$<$<CONFIG:Debug>:0>$<$<CONFIG:Release>:1>")
