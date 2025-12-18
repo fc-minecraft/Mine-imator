@@ -17,7 +17,7 @@ jobs:
       - name: Install Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qtbase5-dev qttools5-dev qt5-qmake libopenal-dev libfreetype-dev libzip-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libvdpau-dev libva-dev libsndio-dev libx264-dev libgnutls28-dev nettle-dev libx11-dev
+          sudo apt-get install -y qtbase5-dev qttools5-dev qt5-qmake libopenal-dev libfreetype-dev libzip-dev libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libswresample-dev libvdpau-dev libva-dev libsndio-dev libx264-dev libgnutls28-dev nettle-dev libx11-dev liblzma-dev
 
       - name: Build
         run: |
@@ -65,9 +65,14 @@ jobs:
           path: C:\Dev\Qt\5.15.9\build
           key: ${{ runner.os }}-qt-5.15.9-static-v1
 
-      - name: Install Tools (NASM, Perl, Python)
+      - name: Install Tools (NASM, Perl)
         run: |
-          choco install nasm strawberryperl python -y
+          choco install nasm strawberryperl -y
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
       - name: Install OpenSSL (Manual Simulation)
         # In a real scenario, downloading form slproweb might be flaky or slow.
@@ -151,8 +156,22 @@ jobs:
         run: |
           mkdir Build
           cd Build
+          # Fix for Qt5 mkspecs missing path issue by symlinking or correcting path if needed.
+          # But simpler: set Qt5_DIR to the lib/cmake/Qt5 folder which should be enough.
+          # brew install qt@5 puts it in /opt/homebrew/opt/qt@5/lib/cmake/Qt5 usually.
+
+          # Workaround for "references the file .../mkspecs/macx-clang but this file does not exist"
+          # This happens because Homebrew might clean up or symlink weirdly.
+          # We can try to symlink the mkspecs folder if it's missing in the expected location.
+
+          QT_PREFIX=$(brew --prefix qt@5)
+          if [ ! -d "$QT_PREFIX/mkspecs" ]; then
+             echo "Symlinking mkspecs..."
+             ln -s $QT_PREFIX/lib/qt5/mkspecs $QT_PREFIX/mkspecs || true
+          fi
+
           # Need to point CMake to brew installed Qt and libs and OpenMP
-          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DOpenMP_ROOT=$(brew --prefix libomp) ../CppProject
+          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libomp)" -DOpenMP_ROOT=$(brew --prefix libomp) ../CppProject
           cmake --build . --config Release -j$(sysctl -n hw.ncpu)
 
       - name: Package
