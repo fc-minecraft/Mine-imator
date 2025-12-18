@@ -78,9 +78,11 @@ jobs:
       - name: Run Setup Dependencies
         shell: powershell
         run: |
+          # Patch setup_environment.ps1 to skip winget since we installed tools via choco/actions
+          (Get-Content ./DOP/setup_environment.ps1) -replace 'winget install', '# winget install' | Set-Content ./DOP/setup_environment.ps1
+
+          # Run the script to set env vars and create folders
           ./DOP/setup_environment.ps1
-          # Note: setup_environment.ps1 might interact with UI or require restarts.
-          # We might need to run individual commands from it.
 
       - name: Manual OpenSSL Install (Automation)
         shell: powershell
@@ -154,9 +156,21 @@ jobs:
           # We can try to symlink the mkspecs folder if it's missing in the expected location.
 
           QT_PREFIX=$(brew --prefix qt@5)
-          if [ ! -d "$QT_PREFIX/mkspecs" ]; then
-             echo "Symlinking mkspecs..."
-             ln -s $QT_PREFIX/lib/qt5/mkspecs $QT_PREFIX/mkspecs || true
+          echo "Qt Prefix: $QT_PREFIX"
+          ls -F "$QT_PREFIX"
+          if [ -d "$QT_PREFIX/share/qt5/mkspecs" ]; then
+             echo "Found mkspecs in share/qt5"
+             if [ ! -d "$QT_PREFIX/mkspecs" ]; then
+                 ln -s "$QT_PREFIX/share/qt5/mkspecs" "$QT_PREFIX/mkspecs"
+             fi
+          elif [ -d "$QT_PREFIX/lib/qt5/mkspecs" ]; then
+             echo "Found mkspecs in lib/qt5"
+             if [ ! -d "$QT_PREFIX/mkspecs" ]; then
+                 ln -s "$QT_PREFIX/lib/qt5/mkspecs" "$QT_PREFIX/mkspecs"
+             fi
+          else
+             echo "mkspecs not found in expected subdirs"
+             find "$QT_PREFIX" -name "mkspecs" -type d
           fi
 
           # Need to point CMake to brew installed Qt and libs and OpenMP
