@@ -144,15 +144,15 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          brew install qt@5 ffmpeg libzip freetype openal-soft cmake
+          brew install qt@5 ffmpeg libzip freetype openal-soft cmake libomp
           brew link qt@5 --force
 
       - name: Build
         run: |
           mkdir Build
           cd Build
-          # Need to point CMake to brew installed Qt and libs
-          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) ../CppProject
+          # Need to point CMake to brew installed Qt and libs and OpenMP
+          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH=$(brew --prefix qt@5) -DOpenMP_ROOT=$(brew --prefix libomp) ../CppProject
           cmake --build . --config Release -j$(sysctl -n hw.ncpu)
 
       - name: Package
