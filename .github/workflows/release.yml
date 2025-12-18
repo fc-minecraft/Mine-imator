@@ -74,17 +74,6 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Install OpenSSL (Manual Simulation)
-        # In a real scenario, downloading form slproweb might be flaky or slow.
-        # Using a reliable source or pre-installed if available.
-        # Windows-2022 has OpenSSL but maybe not the static libs in the structure expected.
-        # We will try to download a prebuilt OpenSSL or use choco.
-        run: |
-          choco install openssl --version 3.1.0 -y
-          # Setup directory structure as expected by scripts if needed, or adjust scripts.
-          # The user instructions say "Download Win64 OpenSSL v3.x... Install to C:\Dev\OpenSSL".
-          # We can try to automate downloading the installer or zip.
-          # For now, let's assume we can use a script to download it.
 
       - name: Run Setup Dependencies
         shell: powershell
