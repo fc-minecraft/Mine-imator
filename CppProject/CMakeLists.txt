@@ -171,7 +171,8 @@ set(INCLUDE_DIRS ${INCLUDE_DIRS} "${DEV_DIR}/OpenAL/openal-soft-1.22.0/include")
 # Add FFmpeg (precompiled or system)
 if (NOT APPLE AND NOT WIN32)
 	# On Linux, try system libraries to avoid version mismatch (x264 155 vs 164)
-	set(LIBS ${LIBS} "-lavformat -lavcodec -lswresample -lswscale -lavutil")
+	# Also close the --start-group opened in the platform block and link X11
+	set(LIBS ${LIBS} "-lavformat -lavcodec -lswresample -lswscale -lavutil -lX11 -Wl,--end-group")
 else()
 	set(LIBS ${LIBS} "${EXT_DIR}/libavformat.a")
 	set(LIBS ${LIBS} "${EXT_DIR}/libavcodec.a")
@@ -189,7 +190,7 @@ qt5_add_resources(SRCS ${QT_INDEX_FILE})
 add_executable(${PROJECT_NAME} ${SRCS} ${APPICON_RC})
 target_precompile_headers(${PROJECT_NAME} PUBLIC "Common.hpp")
 target_include_directories(${PROJECT_NAME} PUBLIC ${INCLUDE_DIRS})
-target_link_libraries(${PROJECT_NAME} ${LIBS} X11 -Wl,--end-group)
+target_link_libraries(${PROJECT_NAME} ${LIBS})
 
 # Project file settings
 set_property(TARGET ${PROJECT_NAME} PROPERTY WIN32_EXECUTABLE "$<$<CONFIG:Debug>:0>$<$<CONFIG:Release>:1>")

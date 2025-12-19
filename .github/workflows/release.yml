@@ -84,6 +84,26 @@ jobs:
           # Run the script to set env vars and create folders
           ./DOP/setup_environment.ps1
 
+      - name: Install Jom and Qt (Manual)
+        shell: powershell
+        run: |
+          # 1. Download Jom
+          $jomUrl = "http://download.qt.io/official_releases/jom/jom_1_1_3.zip"
+          $jomDest = "C:\Dev\Jom"
+          New-Item -ItemType Directory -Force -Path $jomDest
+          Invoke-WebRequest -Uri $jomUrl -OutFile "jom.zip"
+          Expand-Archive "jom.zip" -DestinationPath $jomDest
+
+          # 2. Clone Qt 5.15.9 (using 5.15.2 tag as base or specific branch)
+          $qtDir = "C:\Dev\Qt\5.15.9"
+          New-Item -ItemType Directory -Force -Path "C:\Dev\Qt"
+          if (-not (Test-Path $qtDir)) {
+              git clone https://code.qt.io/qt/qt5.git $qtDir
+              Set-Location $qtDir
+              git checkout 5.15
+              perl init-repository --module-subset=default,-qtwebengine
+          }
+
       - name: Manual OpenSSL Install (Automation)
         shell: powershell
         run: |
@@ -95,7 +115,7 @@ jobs:
       - name: Setup Headers and Libs
         shell: powershell
         run: |
-          ./DOP/setup_dependencies_v2.ps1
+          # Skip setup_dependencies_v2.ps1 as we handled Jom/Qt/OpenSSL manually
           ./DOP/setup_headers.ps1
           ./DOP/fix_headers.ps1
 
@@ -157,20 +177,22 @@ jobs:
 
           QT_PREFIX=$(brew --prefix qt@5)
           echo "Qt Prefix: $QT_PREFIX"
-          ls -F "$QT_PREFIX"
-          if [ -d "$QT_PREFIX/share/qt5/mkspecs" ]; then
-             echo "Found mkspecs in share/qt5"
+          # Try to find mkspecs anywhere in the prefix
+          MKSPECS_DIR=$(find "$QT_PREFIX" -name "mkspecs" -type d | head -n 1)
+          if [ -z "$MKSPECS_DIR" ]; then
+             echo "mkspecs not found in $QT_PREFIX, searching global homebrew"
+             MKSPECS_DIR=$(find /opt/homebrew -name "mkspecs" -type d 2>/dev/null | grep "qt" | head -n 1)
+          fi
+
+          if [ -n "$MKSPECS_DIR" ]; then
+             echo "Found mkspecs at $MKSPECS_DIR"
              if [ ! -d "$QT_PREFIX/mkspecs" ]; then
-                 ln -s "$QT_PREFIX/share/qt5/mkspecs" "$QT_PREFIX/mkspecs"
-             fi
-          elif [ -d "$QT_PREFIX/lib/qt5/mkspecs" ]; then
-             echo "Found mkspecs in lib/qt5"
-             if [ ! -d "$QT_PREFIX/mkspecs" ]; then
-                 ln -s "$QT_PREFIX/lib/qt5/mkspecs" "$QT_PREFIX/mkspecs"
+                 ln -s "$MKSPECS_DIR" "$QT_PREFIX/mkspecs"
+                 echo "Symlinked $MKSPECS_DIR to $QT_PREFIX/mkspecs"
              fi
           else
-             echo "mkspecs not found in expected subdirs"
-             find "$QT_PREFIX" -name "mkspecs" -type d
+             echo "CRITICAL: mkspecs not found!"
+             exit 1
           fi
 
           # Need to point CMake to brew installed Qt and libs and OpenMP
