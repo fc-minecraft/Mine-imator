@@ -83,24 +83,24 @@ function macros()
 	#macro mc_glint_item_file			mc_textures_directory + "misc/enchanted_glint_item.png"
 	
 	// Links
-	#macro link_website					"https://www.mineimator.com"
-	#macro link_tutorials				"https://www.mineimator.com/tutorials2"
-	#macro link_download				"https://www.mineimator.com/download"
-	#macro link_upgrade					"https://www.mineimator.com/upgrade"
-	#macro link_assets					"https://www.mineimator.com/assets/"
+	#macro link_website					"http://www.mineimator.com"
+	#macro link_tutorials				"http://www.mineimator.com/tutorials2"
+	#macro link_download				"http://www.mineimator.com/download"
+	#macro link_upgrade					"http://www.mineimator.com/upgrade"
+	#macro link_assets					"http://www.mineimator.com/assets/"
 	#macro link_assets_versions			link_assets + "versions.midata"
-	#macro link_news					"https://www.mineimator.com/news.php?version=" + mineimator_version + "&platform=" + string(platform_get()) + "&os=" + os_get()
-	#macro link_skins					"https://www.mineimator.com/skin?username="
-	#macro link_forums					"https://www.mineimatorforums.com"
-	#macro link_forums_bugs				"https://www.mineimatorforums.com/index.php?/forum/51-issues-and-bugs/&do=add"
-	#macro link_forums_upload			"https://www.mineimatorforums.com/index.php?/topic/10-guide-how-to-post-a-mine-imator-project/"
-	#macro link_minecraft				"https://www.minecraft.net"
-	#macro link_david					"https://www.stuffbydavid.com"
-	#macro link_modelbench				"https://www.mineimator.com/modelbench"
-	#macro link_twitter					"https://www.mineimator.com/tweets"
-	#macro link_discord					"https://www.mineimator.com/discord"
-	#macro link_donate					"https://www.mineimator.com/donate"
-	#macro link_article_drivers			"https://www.thewindowsclub.com/how-to-update-graphics-drivers-windows"
+	#macro link_news					"http://www.mineimator.com/news.php?version=" + mineimator_version + "&platform=" + string(platform_get()) + "&os=" + os_get()
+	#macro link_skins					"http://www.mineimator.com/skin?username="
+	#macro link_forums					"http://www.mineimatorforums.com"
+	#macro link_forums_bugs				"http://www.mineimatorforums.com/index.php?/forum/51-issues-and-bugs/&do=add"
+	#macro link_forums_upload			"http://www.mineimatorforums.com/index.php?/topic/10-guide-how-to-post-a-mine-imator-project/"
+	#macro link_minecraft				"http://www.minecraft.net"
+	#macro link_david					"http://www.stuffbydavid.com"
+	#macro link_modelbench				"http://www.mineimator.com/modelbench"
+	#macro link_twitter					"http://www.mineimator.com/tweets"
+	#macro link_discord					"http://www.mineimator.com/discord"
+	#macro link_donate					"http://www.mineimator.com/donate"
+	#macro link_article_drivers			"http://www.thewindowsclub.com/how-to-update-graphics-drivers-windows"
 	#macro show_modelbench_popup		true
 	#macro http_ok						200
 	#macro http_bad_request				400

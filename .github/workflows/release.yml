@@ -104,13 +104,7 @@ jobs:
               perl init-repository --module-subset=default,-qtwebengine
           }
 
-      - name: Manual OpenSSL Install (Automation)
-        shell: powershell
-        run: |
-          # Download OpenSSL (Using verified 1.1.1w link as 3.x links are unstable/404)
-          Invoke-WebRequest -Uri "https://slproweb.com/download/Win64OpenSSL-1_1_1w.exe" -OutFile "openssl-installer.exe"
-          # Silent install
-          ./openssl-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /DIR="C:\Dev\OpenSSL"
+      # OpenSSL steps removed as we are building without SSL support
 
       - name: Setup Headers and Libs
         shell: powershell
@@ -125,8 +119,8 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           cd C:\Dev\Qt\5.15.9
-          # Configure command from user instructions
-          configure.bat -platform win32-msvc -prefix "C:/Dev/Qt/5.15.9/build" -opensource -confirm-license -release -static -static-runtime -qt-libjpeg -opengl desktop -openssl-linked -I"C:/Dev/OpenSSL/include" -L"C:/Dev/OpenSSL/lib/VC/x64/MT" OPENSSL_LIBS="-lWs2_32 -lGdi32 -lAdvapi32 -lCrypt32 -lUser32 -llibssl -llibcrypto" -no-icu -nomake tests -nomake examples -nomake tools -skip qt3d -skip qtmultimedia -skip activeqt -skip qtandroidextras -skip qtconnectivity -skip datavis3d -skip qtdoc -skip gamepad -skip qtgraphicaleffects -skip qtcharts -skip qtlocation -skip qtlottie -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtvirtualkeyboard -skip qtwayland -skip qtwebengine -skip qtwebglplugin -skip qtwebchannel -skip qtwebsockets -skip qtwebview -skip qtxmlpatterns
+          # Configure command modified to remove OpenSSL dependency
+          configure.bat -platform win32-msvc -prefix "C:/Dev/Qt/5.15.9/build" -opensource -confirm-license -release -static -static-runtime -qt-libjpeg -opengl desktop -no-openssl -no-icu -nomake tests -nomake examples -nomake tools -skip qt3d -skip qtmultimedia -skip activeqt -skip qtandroidextras -skip qtconnectivity -skip datavis3d -skip qtdoc -skip gamepad -skip qtgraphicaleffects -skip qtcharts -skip qtlocation -skip qtlottie -skip qtnetworkauth -skip qtpurchasing -skip qtquick3d -skip qtquickcontrols -skip qtquickcontrols2 -skip qtquicktimeline -skip qtremoteobjects -skip qtscxml -skip qtsensors -skip qtserialbus -skip qtserialport -skip qtspeech -skip qtvirtualkeyboard -skip qtwayland -skip qtwebengine -skip qtwebglplugin -skip qtwebchannel -skip qtwebsockets -skip qtwebview -skip qtxmlpatterns
           C:\Dev\Jom\jom.exe
           C:\Dev\Jom\jom.exe install
 
