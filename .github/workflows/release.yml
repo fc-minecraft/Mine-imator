@@ -87,8 +87,8 @@ jobs:
       - name: Manual OpenSSL Install (Automation)
         shell: powershell
         run: |
-          # Download OpenSSL
-          Invoke-WebRequest -Uri "https://slproweb.com/download/Win64OpenSSL-3_1_4.exe" -OutFile "openssl-installer.exe"
+          # Download OpenSSL (Using verified 1.1.1w link as 3.x links are unstable/404)
+          Invoke-WebRequest -Uri "https://slproweb.com/download/Win64OpenSSL-1_1_1w.exe" -OutFile "openssl-installer.exe"
           # Silent install
           ./openssl-installer.exe /VERYSILENT /SUPPRESSMSGBOXES /DIR="C:\Dev\OpenSSL"
 
@@ -116,7 +116,7 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat"
           mkdir Build
           cd Build
-          cmake -G "Visual Studio 17 2022" -A x64 ..
+          cmake -G "Visual Studio 17 2022" -A x64 ../CppProject
           cmake --build . --config Release
 
       - name: Package
