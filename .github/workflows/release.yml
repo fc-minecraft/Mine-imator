@@ -62,8 +62,8 @@ jobs:
         id: cache-qt
         uses: actions/cache@v4
         with:
-          path: C:\Dev\Qt\5.15.9\build
-          key: ${{ runner.os }}-qt-5.15.9-static-v1
+          path: C:\Dev
+          key: ${{ runner.os }}-qt-5.15.9-static-v2
 
       - name: Install Tools (NASM, Perl)
         run: |
@@ -195,6 +195,21 @@ jobs:
           else
              echo "CRITICAL: mkspecs not found!"
              exit 1
+          fi
+
+          # Workaround for Qt5GuiConfig.cmake expecting plugins in /opt/homebrew/plugins
+          # Similar to mkspecs, find plugins directory and symlink
+          PLUGINS_DIR=$(find "$QT_PREFIX" -name "plugins" -type d | head -n 1)
+          if [ -z "$PLUGINS_DIR" ]; then
+             PLUGINS_DIR=$(find /opt/homebrew -name "plugins" -type d 2>/dev/null | grep "qt" | head -n 1)
+          fi
+
+          if [ -n "$PLUGINS_DIR" ]; then
+             echo "Found plugins at $PLUGINS_DIR"
+             if [ ! -d "/opt/homebrew/plugins" ]; then
+                 sudo ln -s "$PLUGINS_DIR" "/opt/homebrew/plugins"
+                 echo "Symlinked $PLUGINS_DIR to /opt/homebrew/plugins"
+             fi
           fi
 
           # Need to point CMake to brew installed Qt and libs and OpenMP
