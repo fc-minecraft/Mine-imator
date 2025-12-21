@@ -85,19 +85,22 @@ jobs:
           ./DOP/setup_environment.ps1
 
       - name: Install Jom and Qt (Manual)
+        if: steps.cache-qt.outputs.cache-hit != 'true'
         shell: powershell
         run: |
           # 1. Download Jom
           $jomUrl = "http://download.qt.io/official_releases/jom/jom_1_1_3.zip"
           $jomDest = "C:\Dev\Jom"
-          New-Item -ItemType Directory -Force -Path $jomDest
-          Invoke-WebRequest -Uri $jomUrl -OutFile "jom.zip"
-          Expand-Archive "jom.zip" -DestinationPath $jomDest
+          if (-not (Test-Path "$jomDest\jom.exe")) {
+              New-Item -ItemType Directory -Force -Path $jomDest
+              Invoke-WebRequest -Uri $jomUrl -OutFile "jom.zip"
+              Expand-Archive "jom.zip" -DestinationPath $jomDest
+          }
 
           # 2. Clone Qt 5.15.9 (using 5.15.2 tag as base or specific branch)
           $qtDir = "C:\Dev\Qt\5.15.9"
           New-Item -ItemType Directory -Force -Path "C:\Dev\Qt"
-          if (-not (Test-Path $qtDir)) {
+          if (-not (Test-Path "$qtDir\configure.bat")) {
               git clone https://code.qt.io/qt/qt5.git $qtDir
               Set-Location $qtDir
               git checkout 5.15
@@ -183,6 +186,11 @@ jobs:
              if [ ! -d "$QT_PREFIX/mkspecs" ]; then
                  ln -s "$MKSPECS_DIR" "$QT_PREFIX/mkspecs"
                  echo "Symlinked $MKSPECS_DIR to $QT_PREFIX/mkspecs"
+             fi
+             # Also symlink to /opt/homebrew/mkspecs as CMake seems to look there based on error log
+             if [ ! -d "/opt/homebrew/mkspecs" ]; then
+                 sudo ln -s "$MKSPECS_DIR" "/opt/homebrew/mkspecs"
+                 echo "Symlinked $MKSPECS_DIR to /opt/homebrew/mkspecs"
              fi
           else
              echo "CRITICAL: mkspecs not found!"
