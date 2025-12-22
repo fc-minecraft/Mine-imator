@@ -255,7 +255,8 @@ jobs:
           fi
 
           # Need to point CMake to brew installed Qt and libs and OpenMP
-          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libomp)" -DOpenMP_ROOT=$(brew --prefix libomp) ../CppProject
+          # Explicitly add OpenAL include dir
+          cmake -DDEV_DIR=$HOME/Dev -DQT_VERSION=5.15.9 -DCMAKE_PREFIX_PATH="$(brew --prefix qt@5);$(brew --prefix libomp);$(brew --prefix openal-soft)" -DOpenMP_ROOT=$(brew --prefix libomp) -DCMAKE_CXX_FLAGS="-I$(brew --prefix openal-soft)/include" ../CppProject
           cmake --build . --config Release -j$(sysctl -n hw.ncpu)
 
       - name: Package
