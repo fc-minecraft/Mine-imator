@@ -123,11 +123,14 @@ jobs:
                  Invoke-WebRequest -Uri $url -OutFile $archiveName
                  Write-Host "Extracting $name..."
                  7z x $archiveName -o"$devDir" -y
-                 if ($archiveName -like "*.tar") {
-                     $tarName = $archiveName
-                 } else {
-                     $tarName = $archiveName.Substring(0, $archiveName.LastIndexOf('.'))
-                     7z x $tarName -o"$devDir" -y
+                 if ($archiveName -like "*.tar*") {
+                     if ($archiveName -like "*.tar") {
+                        $tarName = $archiveName
+                     } else {
+                        $tarName = $archiveName.Substring(0, $archiveName.LastIndexOf('.'))
+                        # The extracted tar is in devDir
+                        7z x "$devDir\$tarName" -o"$devDir" -y
+                     }
                  }
              }
           }
