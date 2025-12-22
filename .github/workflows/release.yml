@@ -58,12 +58,14 @@ jobs:
           New-Item -ItemType Directory -Force -Path C:\Dev
           New-Item -ItemType Directory -Force -Path C:\Dev\OpenSSL
 
-      - name: Cache Qt Build
+      - name: Restore Qt Cache
         id: cache-qt
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: C:\Dev
           key: ${{ runner.os }}-qt-5.15.9-static-v2
+          restore-keys: |
+            ${{ runner.os }}-qt-5.15.9-static-
 
       - name: Install Tools (NASM, Perl)
         run: |
@@ -109,11 +111,44 @@ jobs:
 
       # OpenSSL steps removed as we are building without SSL support
 
-      - name: Setup Headers and Libs
+      - name: Setup Headers and Libs (Manual)
         shell: powershell
         run: |
-          # Skip setup_dependencies_v2.ps1 as we handled Jom/Qt/OpenSSL manually
-          ./DOP/setup_headers.ps1
+          # Replace setup_headers.ps1 to avoid timeouts and errors with tar
+          $devDir = "C:\Dev"
+
+          function Install-Lib($name, $url, $dest, $archiveName) {
+             if (-not (Test-Path $dest)) {
+                 Write-Host "Downloading $name..."
+                 Invoke-WebRequest -Uri $url -OutFile $archiveName
+                 Write-Host "Extracting $name..."
+                 7z x $archiveName -o"$devDir" -y
+                 if ($archiveName -like "*.tar") {
+                     $tarName = $archiveName
+                 } else {
+                     $tarName = $archiveName.Substring(0, $archiveName.LastIndexOf('.'))
+                     7z x $tarName -o"$devDir" -y
+                 }
+             }
+          }
+
+          # OpenAL
+          Install-Lib "OpenAL" "https://openal-soft.org/openal-releases/openal-soft-1.22.0.tar.bz2" "$devDir\openal-soft-1.22.0" "openal.tar.bz2"
+          if (Test-Path "$devDir\openal-soft-1.22.0") { Rename-Item "$devDir\openal-soft-1.22.0" "$devDir\OpenAL" }
+
+          # Libzip
+          Install-Lib "Libzip" "https://libzip.org/download/libzip-1.9.2.tar.gz" "$devDir\libzip-1.9.2" "libzip.tar.gz"
+          if (Test-Path "$devDir\libzip-1.9.2") { Rename-Item "$devDir\libzip-1.9.2" "$devDir\Libzip" }
+
+          # FreeType
+          Install-Lib "FreeType" "https://download.savannah.gnu.org/releases/freetype/freetype-2.9.1.tar.gz" "$devDir\freetype-2.9.1" "freetype.tar.gz"
+          if (Test-Path "$devDir\freetype-2.9.1") { Rename-Item "$devDir\freetype-2.9.1" "$devDir\FreeType" }
+
+          # FFmpeg
+          Install-Lib "FFmpeg" "https://www.ffmpeg.org/releases/ffmpeg-5.0.tar.xz" "$devDir\ffmpeg-5.0" "ffmpeg.tar.xz"
+          if (Test-Path "$devDir\ffmpeg-5.0") { Rename-Item "$devDir\ffmpeg-5.0" "$devDir\FFmpeg" }
+
+          # Run fix_headers.ps1
           ./DOP/fix_headers.ps1
 
       - name: Compile Qt (If not cached)
@@ -135,6 +170,13 @@ jobs:
           cd Build
           cmake -G "Visual Studio 17 2022" -A x64 ../CppProject
           cmake --build . --config Release
+
+      - name: Save Qt Cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: C:\Dev
+          key: ${{ runner.os }}-qt-5.15.9-static-v2
 
       - name: Package
         shell: powershell
